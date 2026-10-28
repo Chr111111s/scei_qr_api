@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: scei_qr_py_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scei
+      POSTGRES_PASSWORD: scei_dev
+      POSTGRES_DB: scei_qr
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scei -d scei_qr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: scei_qr_py_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://scei:scei_dev@db:5432/scei_qr
+      DIRECT_URL: postgresql+asyncpg://scei:scei_dev@db:5432/scei_qr
+      JWT_SECRET: ${JWT_SECRET:-cambia-este-secreto-en-produccion-32-bytes-minimo}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-8h}
+      PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      STORAGE_DRIVER: local
+      UPLOAD_DIR: uploads
+      SEED_ON_START: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

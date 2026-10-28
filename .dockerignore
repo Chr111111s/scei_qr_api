@@ -1,0 +1,12 @@
+.venv
+.env
+.git
+.gitignore
+__pycache__
+*.pyc
+.mypy_cache
+.pytest_cache
+.ruff_cache
+tests
+uploads
+scei_qr_api.egg-info
