@@ -37,6 +37,8 @@ class Usuario(Base):
     username: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column("passwordHash", Text, nullable=False)
     full_name: Mapped[str] = mapped_column("fullName", Text, nullable=False)
+    correo: Mapped[str | None] = mapped_column(Text, unique=True)
+    matricula: Mapped[str | None] = mapped_column(Text, unique=True)
     rol: Mapped[Rol] = mapped_column(_enum_type(Rol, "Rol"), nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     fcm_token: Mapped[str | None] = mapped_column("fcmToken", Text, unique=True)

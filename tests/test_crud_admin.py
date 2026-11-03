@@ -9,6 +9,8 @@ from app.infrastructure.db.session import SessionLocal
 async def test_admin_user_and_equipment_crud(client) -> None:
     stamp = int(time() * 1000)
     username = f"e2e_user_{stamp}"
+    correo = f"e2e_{stamp}@example.com"
+    matricula = f"M{str(stamp)[-8:]}"
     codigo = f"CRUD-{stamp}"
     user_id: int | None = None
     equipment_id: int | None = None
@@ -28,6 +30,8 @@ async def test_admin_user_and_equipment_crud(client) -> None:
                 "username": username,
                 "password": "Password123!",
                 "fullName": "Usuario CRUD",
+                "correo": correo.upper(),
+                "matricula": matricula.lower(),
                 "rol": "ALUMNO",
                 "activo": True,
             },
@@ -36,6 +40,8 @@ async def test_admin_user_and_equipment_crud(client) -> None:
         user = created_user.json()
         user_id = user["id"]
         assert user["fullName"] == "Usuario CRUD"
+        assert user["correo"] == correo
+        assert user["matricula"] == matricula
         assert user["rol"] == "ALUMNO"
         assert user["activo"] is True
         assert "password" not in user
@@ -52,6 +58,32 @@ async def test_admin_user_and_equipment_crud(client) -> None:
             },
         )
         assert duplicate_user.status_code == 409
+
+        duplicate_correo = await client.post(
+            "/api/v1/usuarios",
+            headers=headers,
+            json={
+                "username": f"{username}_correo",
+                "password": "Password123!",
+                "fullName": "Correo duplicado",
+                "correo": correo,
+                "rol": "ALUMNO",
+            },
+        )
+        assert duplicate_correo.status_code == 409
+
+        duplicate_matricula = await client.post(
+            "/api/v1/usuarios",
+            headers=headers,
+            json={
+                "username": f"{username}_matricula",
+                "password": "Password123!",
+                "fullName": "Matrícula duplicada",
+                "matricula": matricula,
+                "rol": "ALUMNO",
+            },
+        )
+        assert duplicate_matricula.status_code == 409
 
         invalid_user = await client.post(
             "/api/v1/usuarios",
@@ -104,6 +136,13 @@ async def test_admin_user_and_equipment_crud(client) -> None:
         )
         assert user_login.status_code == 200
         assert user_login.json()["user"]["id"] == user_id
+
+        matricula_login = await client.post(
+            "/api/v1/auth/login",
+            json={"username": matricula.lower(), "password": "Password123!"},
+        )
+        assert matricula_login.status_code == 200
+        assert matricula_login.json()["user"]["id"] == user_id
 
         created_equipment = await client.post(
             "/api/v1/equipos",

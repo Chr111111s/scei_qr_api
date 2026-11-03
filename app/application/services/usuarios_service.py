@@ -28,15 +28,23 @@ class UsuariosService:
         full_name: str,
         rol: Rol,
         activo: bool | None,
+        correo: str | None = None,
+        matricula: str | None = None,
     ) -> User:
         if await self.users.exists_username(username):
             raise ConflictError(f'El usuario "{username}" ya existe')
+        if correo is not None and await self.users.exists_correo(correo):
+            raise ConflictError(f'El correo "{correo}" ya existe')
+        if matricula is not None and await self.users.exists_matricula(matricula):
+            raise ConflictError(f'La matrícula "{matricula}" ya existe')
         return await self.users.create(
             username=username,
             password_hash=hash_password(password),
             full_name=full_name,
             rol=rol,
             activo=True if activo is None else activo,
+            correo=correo,
+            matricula=matricula,
         )
 
     async def update(
@@ -51,6 +59,16 @@ class UsuariosService:
         username = values.get("username")
         if username is not None and await self.users.exists_username(username, exclude_id=user_id):
             raise ConflictError(f'El usuario "{username}" ya existe')
+
+        correo = values.get("correo")
+        if correo is not None and await self.users.exists_correo(correo, exclude_id=user_id):
+            raise ConflictError(f'El correo "{correo}" ya existe')
+
+        matricula = values.get("matricula")
+        if matricula is not None and await self.users.exists_matricula(
+            matricula, exclude_id=user_id
+        ):
+            raise ConflictError(f'La matrícula "{matricula}" ya existe')
 
         clean_values = {key: value for key, value in values.items() if value is not None}
         if password:

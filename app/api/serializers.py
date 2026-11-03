@@ -26,6 +26,8 @@ def user_public(user: User) -> dict[str, Any]:
         "id": user.id,
         "username": user.username,
         "fullName": user.full_name,
+        "correo": user.correo,
+        "matricula": user.matricula,
         "rol": user.rol.value,
         "activo": user.activo,
         "createdAt": iso_timestamp(user.created_at),

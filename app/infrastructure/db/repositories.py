@@ -29,6 +29,8 @@ def _user(row: Usuario) -> User:
         activo=row.activo,
         fcm_token=row.fcm_token,
         created_at=row.created_at,
+        correo=row.correo,
+        matricula=row.matricula,
     )
 
 
@@ -96,7 +98,12 @@ class SqlAlchemyUserRepository:
         if q:
             pattern = f"%{q}%"
             stmt = stmt.where(
-                or_(Usuario.username.ilike(pattern), Usuario.full_name.ilike(pattern))
+                or_(
+                    Usuario.username.ilike(pattern),
+                    Usuario.full_name.ilike(pattern),
+                    Usuario.correo.ilike(pattern),
+                    Usuario.matricula.ilike(pattern),
+                )
             )
         stmt = stmt.order_by(Usuario.id.asc())
         result = await self.session.execute(stmt)
@@ -108,6 +115,15 @@ class SqlAlchemyUserRepository:
 
     async def find_by_username(self, username: str) -> User | None:
         result = await self.session.execute(select(Usuario).where(Usuario.username == username))
+        row = result.scalar_one_or_none()
+        return _user(row) if row else None
+
+    async def find_by_login(self, identifier: str) -> User | None:
+        result = await self.session.execute(
+            select(Usuario).where(
+                or_(Usuario.username == identifier, Usuario.matricula == identifier.upper())
+            )
+        )
         row = result.scalar_one_or_none()
         return _user(row) if row else None
 
@@ -123,6 +139,20 @@ class SqlAlchemyUserRepository:
         result = await self.session.execute(stmt.limit(1))
         return result.scalar_one_or_none() is not None
 
+    async def exists_correo(self, correo: str, *, exclude_id: int | None = None) -> bool:
+        stmt = select(Usuario.id).where(func.lower(Usuario.correo) == correo.lower())
+        if exclude_id is not None:
+            stmt = stmt.where(Usuario.id != exclude_id)
+        result = await self.session.execute(stmt.limit(1))
+        return result.scalar_one_or_none() is not None
+
+    async def exists_matricula(self, matricula: str, *, exclude_id: int | None = None) -> bool:
+        stmt = select(Usuario.id).where(Usuario.matricula == matricula)
+        if exclude_id is not None:
+            stmt = stmt.where(Usuario.id != exclude_id)
+        result = await self.session.execute(stmt.limit(1))
+        return result.scalar_one_or_none() is not None
+
     async def create(
         self,
         *,
@@ -131,6 +161,8 @@ class SqlAlchemyUserRepository:
         full_name: str,
         rol: Rol,
         activo: bool,
+        correo: str | None = None,
+        matricula: str | None = None,
     ) -> User:
         row = Usuario(
             username=username,
@@ -138,6 +170,8 @@ class SqlAlchemyUserRepository:
             full_name=full_name,
             rol=rol,
             activo=activo,
+            correo=correo,
+            matricula=matricula,
         )
         self.session.add(row)
         await self.session.commit()

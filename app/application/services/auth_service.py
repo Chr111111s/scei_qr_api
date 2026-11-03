@@ -9,7 +9,7 @@ class AuthService:
         self.users = users
 
     async def login(self, username: str, password: str) -> tuple[str, int, User]:
-        user = await self.users.find_by_username(username)
+        user = await self.users.find_by_login(username)
         if user is None or not user.activo or not verify_password(password, user.password_hash):
             raise UnauthorizedError("Usuario o contraseña incorrectos")
 

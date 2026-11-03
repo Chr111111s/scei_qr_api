@@ -11,10 +11,10 @@ from app.infrastructure.db.session import SessionLocal, engine
 DEMO_PASSWORD = "Password123!"
 
 USERS = [
-    ("admin", "Ana Torres (Administradora)", Rol.ADMIN),
-    ("soporte", "Carlos Mena (Soporte técnico)", Rol.SOPORTE),
-    ("alumno1", "Lucía Fernández (Alumna)", Rol.ALUMNO),
-    ("alumno2", "Mateo Ruiz (Alumno)", Rol.ALUMNO),
+    ("admin", "Ana Torres (Administradora)", Rol.ADMIN, "ana.torres@utez.edu.mx", None),
+    ("soporte", "Carlos Mena (Soporte técnico)", Rol.SOPORTE, "carlos.mena@utez.edu.mx", None),
+    ("alumno1", "Lucía Fernández (Alumna)", Rol.ALUMNO, "lucia.fernandez@utez.edu.mx", "20231234"),
+    ("alumno2", "Mateo Ruiz (Alumno)", Rol.ALUMNO, "mateo.ruiz@utez.edu.mx", "20231235"),
 ]
 
 EQUIPMENT = [
@@ -50,9 +50,9 @@ async def seed() -> None:
     async with SessionLocal() as session:
         password_hash = hash_password(DEMO_PASSWORD)
 
-        for username, full_name, rol in USERS:
-            exists = await session.scalar(select(Usuario.id).where(Usuario.username == username))
-            if exists is None:
+        for username, full_name, rol, correo, matricula in USERS:
+            existing = await session.scalar(select(Usuario).where(Usuario.username == username))
+            if existing is None:
                 session.add(
                     Usuario(
                         username=username,
@@ -60,8 +60,15 @@ async def seed() -> None:
                         full_name=full_name,
                         rol=rol,
                         activo=True,
+                        correo=correo,
+                        matricula=matricula,
                     )
                 )
+            else:
+                if existing.correo is None:
+                    existing.correo = correo
+                if existing.matricula is None:
+                    existing.matricula = matricula
         print(f"   OK {len(USERS)} usuarios verificados/creados")
 
         for codigo, nombre, descripcion, ubicacion in EQUIPMENT:

@@ -43,6 +43,8 @@ async def crear(
         full_name=body.full_name,
         rol=body.rol,
         activo=body.activo,
+        correo=body.correo,
+        matricula=body.matricula,
     )
     return user_public(user)
 

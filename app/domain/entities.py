@@ -14,6 +14,8 @@ class User:
     activo: bool
     fcm_token: str | None
     created_at: datetime
+    correo: str | None = None
+    matricula: str | None = None
 
 
 @dataclass(frozen=True)
