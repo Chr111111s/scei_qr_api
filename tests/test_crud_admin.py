@@ -215,3 +215,141 @@ async def test_admin_user_and_equipment_crud(client) -> None:
             if user_id is not None:
                 await session.execute(delete(Usuario).where(Usuario.id == user_id))
             await session.commit()
+
+
+async def test_soporte_requiere_correo(client) -> None:
+    stamp = int(time() * 1000)
+    tecnico_username = f"e2e_soporte_{stamp}"
+    alumno_username = f"e2e_sin_correo_{stamp}"
+    correo = f"soporte_{stamp}@example.com"
+    created_ids: list[int] = []
+
+    try:
+        login = await client.post(
+            "/api/v1/auth/login",
+            json={"username": "admin", "password": "Password123!"},
+        )
+        assert login.status_code == 200
+        headers = {"Authorization": f"Bearer {login.json()['accessToken']}"}
+
+        sin_correo = await client.post(
+            "/api/v1/usuarios",
+            headers=headers,
+            json={
+                "username": tecnico_username,
+                "password": "Password123!",
+                "fullName": "Soporte sin correo",
+                "rol": "SOPORTE",
+            },
+        )
+        assert sin_correo.status_code == 400
+        assert sin_correo.json()["message"] == (
+            "El correo es obligatorio para el personal de soporte"
+        )
+
+        con_correo = await client.post(
+            "/api/v1/usuarios",
+            headers=headers,
+            json={
+                "username": tecnico_username,
+                "password": "Password123!",
+                "fullName": "Soporte con correo",
+                "correo": correo.upper(),
+                "rol": "SOPORTE",
+            },
+        )
+        assert con_correo.status_code == 201, con_correo.text
+        tecnico = con_correo.json()
+        created_ids.append(tecnico["id"])
+        assert tecnico["correo"] == correo
+        assert tecnico["rol"] == "SOPORTE"
+
+        sin_correo_tecnico = await client.patch(
+            f"/api/v1/usuarios/{tecnico['id']}",
+            headers=headers,
+            json={"correo": None},
+        )
+        assert sin_correo_tecnico.status_code == 400
+
+        alumno = await client.post(
+            "/api/v1/usuarios",
+            headers=headers,
+            json={
+                "username": alumno_username,
+                "password": "Password123!",
+                "fullName": "Alumno sin correo",
+                "rol": "ALUMNO",
+            },
+        )
+        assert alumno.status_code == 201, alumno.text
+        alumno_id = alumno.json()["id"]
+        created_ids.append(alumno_id)
+
+        promotion = await client.patch(
+            f"/api/v1/usuarios/{alumno_id}",
+            headers=headers,
+            json={"rol": "SOPORTE"},
+        )
+        assert promotion.status_code == 400
+        assert promotion.json()["message"] == (
+            "El correo es obligatorio para el personal de soporte"
+        )
+    finally:
+        async with SessionLocal() as session:
+            for user_id in created_ids:
+                await session.execute(delete(Usuario).where(Usuario.id == user_id))
+            await session.commit()
+
+
+async def test_password_minimo_ocho(client) -> None:
+    stamp = int(time() * 1000)
+    username = f"e2e_password_{stamp}"
+    correo = f"password_{stamp}@example.com"
+    user_id: int | None = None
+
+    try:
+        login = await client.post(
+            "/api/v1/auth/login",
+            json={"username": "admin", "password": "Password123!"},
+        )
+        assert login.status_code == 200
+        headers = {"Authorization": f"Bearer {login.json()['accessToken']}"}
+
+        short_password = await client.post(
+            "/api/v1/usuarios",
+            headers=headers,
+            json={
+                "username": username,
+                "password": "Abc1234",
+                "fullName": "Contraseña corta",
+                "correo": correo,
+                "rol": "SOPORTE",
+            },
+        )
+        assert short_password.status_code == 400
+
+        created = await client.post(
+            "/api/v1/usuarios",
+            headers=headers,
+            json={
+                "username": username,
+                "password": "Abc12345",
+                "fullName": "Contraseña válida",
+                "correo": correo,
+                "rol": "SOPORTE",
+            },
+        )
+        assert created.status_code == 201, created.text
+        user_id = created.json()["id"]
+
+        short_update = await client.patch(
+            f"/api/v1/usuarios/{user_id}",
+            headers=headers,
+            json={"password": "Abc1234"},
+        )
+        assert short_update.status_code == 400
+    finally:
+        async with SessionLocal() as session:
+            if user_id is not None:
+                await session.execute(delete(Usuario).where(Usuario.id == user_id))
+            await session.commit()

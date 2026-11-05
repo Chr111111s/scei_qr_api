@@ -4,6 +4,7 @@ from app.domain.enums import EstadoIncidencia, Rol
 
 _FORMATO_CORREO = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 _FORMATO_MATRICULA = r"^[A-Z0-9]{6,12}$"
+_PASSWORD_MIN_LENGTH = 8
 
 
 def _normalizar_correo(value: str | None) -> str | None:
@@ -25,7 +26,7 @@ class LoginRequest(StrictModel):
 
 class CreateUsuarioRequest(StrictModel):
     username: str = Field(min_length=1)
-    password: str = Field(min_length=6)
+    password: str = Field(min_length=_PASSWORD_MIN_LENGTH)
     full_name: str = Field(alias="fullName", min_length=1)
     correo: str | None = Field(default=None, pattern=_FORMATO_CORREO, max_length=254)
     matricula: str | None = Field(default=None, pattern=_FORMATO_MATRICULA)
@@ -45,7 +46,7 @@ class CreateUsuarioRequest(StrictModel):
 
 class UpdateUsuarioRequest(StrictModel):
     username: str | None = Field(default=None, min_length=1)
-    password: str | None = Field(default=None, min_length=6)
+    password: str | None = Field(default=None, min_length=_PASSWORD_MIN_LENGTH)
     full_name: str | None = Field(default=None, alias="fullName", min_length=1)
     correo: str | None = Field(default=None, pattern=_FORMATO_CORREO, max_length=254)
     matricula: str | None = Field(default=None, pattern=_FORMATO_MATRICULA)

@@ -3,8 +3,10 @@ from typing import Any
 from app.core.security import hash_password
 from app.domain.entities import User
 from app.domain.enums import Rol
-from app.domain.exceptions import ConflictError, NotFoundError
+from app.domain.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.domain.ports.repositories import UserRepository
+
+_CORREO_REQUERIDO_SOPORTE = "El correo es obligatorio para el personal de soporte"
 
 
 class UsuariosService:
@@ -31,6 +33,8 @@ class UsuariosService:
         correo: str | None = None,
         matricula: str | None = None,
     ) -> User:
+        if rol == Rol.SOPORTE and not correo:
+            raise BadRequestError(_CORREO_REQUERIDO_SOPORTE)
         if await self.users.exists_username(username):
             raise ConflictError(f'El usuario "{username}" ya existe')
         if correo is not None and await self.users.exists_correo(correo):
@@ -54,7 +58,13 @@ class UsuariosService:
         values: dict[str, Any],
         password: str | None,
     ) -> User:
-        await self.find_one(user_id)
+        user = await self.find_one(user_id)
+
+        if "rol" in values or "correo" in values:
+            nuevo_rol = values.get("rol") or user.rol
+            nuevo_correo = values["correo"] if "correo" in values else user.correo
+            if nuevo_rol == Rol.SOPORTE and not nuevo_correo:
+                raise BadRequestError(_CORREO_REQUERIDO_SOPORTE)
 
         username = values.get("username")
         if username is not None and await self.users.exists_username(username, exclude_id=user_id):
