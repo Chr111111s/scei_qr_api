@@ -28,6 +28,13 @@ class UsosService:
                 )
             raise ConflictError(message)
 
+        uso_equipo = await self.usos.find_active_by_equipo(equipo.id)
+        if uso_equipo is not None:
+            raise ConflictError(
+                f'El equipo "{equipo.codigo}" ya está en uso. '
+                "Finaliza el uso actual antes de registrar otro."
+            )
+
         return await self.usos.create(alumno_id=alumno_id, equipo_id=equipo.id)
 
     async def finalizar(self, usage_id: int, alumno_id: int) -> Usage:

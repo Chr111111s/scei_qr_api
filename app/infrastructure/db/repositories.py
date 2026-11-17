@@ -285,6 +285,17 @@ class SqlAlchemyUsageRepository:
         row = result.scalar_one_or_none()
         return _usage(row) if row else None
 
+    async def find_active_by_equipo(self, equipo_id: int) -> Usage | None:
+        stmt = (
+            select(Uso)
+            .where(Uso.equipo_id == equipo_id, Uso.estado == EstadoUso.ACTIVO)
+            .options(selectinload(Uso.equipo), selectinload(Uso.alumno))
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return _usage(row) if row else None
+
     async def find_by_id(self, usage_id: int) -> Usage | None:
         stmt = (
             select(Uso)
