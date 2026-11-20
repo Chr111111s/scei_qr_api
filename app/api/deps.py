@@ -24,6 +24,7 @@ from app.infrastructure.db.repositories import (
 )
 from app.infrastructure.db.session import get_session
 from app.infrastructure.exports.pdf import PdfExporter
+from app.infrastructure.exports.qr_labels import QrLabelExporter
 from app.infrastructure.exports.xlsx import XlsxExporter
 from app.infrastructure.qr import QrCodeGenerator
 from app.infrastructure.storage.local import LocalStorage
@@ -103,7 +104,7 @@ def get_usuarios_service(
 def get_equipos_service(
     equipos: SqlAlchemyEquipmentRepository = Depends(get_equipment_repository),
 ) -> EquiposService:
-    return EquiposService(equipos, QrCodeGenerator())
+    return EquiposService(equipos, QrCodeGenerator(), QrLabelExporter())
 
 
 def get_usos_service(

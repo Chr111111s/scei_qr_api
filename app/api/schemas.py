@@ -69,6 +69,7 @@ class CreateEquipoRequest(StrictModel):
     nombre: str = Field(min_length=1)
     descripcion: str | None = None
     ubicacion: str = Field(min_length=1)
+    laboratorio: str | None = Field(default=None, max_length=120)
 
 
 class UpdateEquipoRequest(StrictModel):
@@ -76,6 +77,7 @@ class UpdateEquipoRequest(StrictModel):
     nombre: str | None = Field(default=None, min_length=1)
     descripcion: str | None = None
     ubicacion: str | None = Field(default=None, min_length=1)
+    laboratorio: str | None = Field(default=None, max_length=120)
     activo: bool | None = None
 
 

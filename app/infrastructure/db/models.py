@@ -63,6 +63,7 @@ class Equipo(Base):
     nombre: Mapped[str] = mapped_column(Text, nullable=False)
     descripcion: Mapped[str | None] = mapped_column(Text)
     ubicacion: Mapped[str] = mapped_column(Text, nullable=False)
+    laboratorio: Mapped[str | None] = mapped_column(Text)
     qr_token: Mapped[str] = mapped_column("qrToken", Text, nullable=False, unique=True)
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(

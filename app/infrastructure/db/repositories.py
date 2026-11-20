@@ -44,6 +44,7 @@ def _equipment(row: Equipo) -> Equipment:
         qr_token=row.qr_token,
         activo=row.activo,
         created_at=row.created_at,
+        laboratorio=row.laboratorio,
     )
 
 
@@ -207,12 +208,15 @@ class SqlAlchemyEquipmentRepository:
         activo: bool | None,
         q: str | None,
         ubicacion: str | None,
+        laboratorio: str | None = None,
     ) -> list[Equipment]:
         stmt = select(Equipo)
         if activo is not None:
             stmt = stmt.where(Equipo.activo == activo)
         if ubicacion:
             stmt = stmt.where(Equipo.ubicacion.ilike(f"%{ubicacion}%"))
+        if laboratorio:
+            stmt = stmt.where(Equipo.laboratorio.ilike(f"%{laboratorio}%"))
         if q:
             pattern = f"%{q}%"
             stmt = stmt.where(or_(Equipo.codigo.ilike(pattern), Equipo.nombre.ilike(pattern)))
@@ -242,12 +246,14 @@ class SqlAlchemyEquipmentRepository:
         descripcion: str | None,
         ubicacion: str,
         qr_token: str,
+        laboratorio: str | None = None,
     ) -> Equipment:
         row = Equipo(
             codigo=codigo,
             nombre=nombre,
             descripcion=descripcion,
             ubicacion=ubicacion,
+            laboratorio=laboratorio,
             qr_token=qr_token,
             activo=True,
         )

@@ -57,6 +57,7 @@ def equipment_public(equipment: Equipment | None) -> dict[str, Any] | None:
         "nombre": equipment.nombre,
         "descripcion": equipment.descripcion,
         "ubicacion": equipment.ubicacion,
+        "laboratorio": equipment.laboratorio,
         "qrToken": equipment.qr_token,
         "activo": equipment.activo,
         "createdAt": iso_timestamp(equipment.created_at),

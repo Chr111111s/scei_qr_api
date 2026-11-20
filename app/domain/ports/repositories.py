@@ -53,6 +53,7 @@ class EquipmentRepository(Protocol):
         activo: bool | None,
         q: str | None,
         ubicacion: str | None,
+        laboratorio: str | None = None,
     ) -> list[Equipment]: ...
 
     async def find_by_id(self, equipment_id: int) -> Equipment | None: ...
@@ -69,6 +70,7 @@ class EquipmentRepository(Protocol):
         descripcion: str | None,
         ubicacion: str,
         qr_token: str,
+        laboratorio: str | None = None,
     ) -> Equipment: ...
 
     async def update(self, equipment_id: int, values: dict[str, Any]) -> Equipment: ...
