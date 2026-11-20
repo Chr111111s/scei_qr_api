@@ -28,6 +28,7 @@ class Equipment:
     qr_token: str
     activo: bool
     created_at: datetime
+    laboratorio: str | None = None
 
 
 @dataclass(frozen=True)

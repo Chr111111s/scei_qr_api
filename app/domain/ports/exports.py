@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.domain.entities import ReportData
+from app.domain.entities import Equipment, ReportData
 
 
 class XlsxExporterPort(Protocol):
@@ -9,3 +9,9 @@ class XlsxExporterPort(Protocol):
 
 class PdfExporterPort(Protocol):
     def build(self, data: ReportData) -> bytes: ...
+
+
+class QrLabelExporterPort(Protocol):
+    def single_label(self, equipment: Equipment) -> bytes: ...
+
+    def labels_sheet(self, equipos: list[Equipment]) -> bytes: ...

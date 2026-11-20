@@ -22,24 +22,28 @@ EQUIPMENT = [
         "LAB-PC-001",
         "PC Dell OptiPlex 7090",
         "Equipo de cómputo para talleres de programación",
+        "Laboratorio de Cómputo 1",
         "Laboratorio de Cómputo 1, Fila A",
     ),
     (
         "LAB-PC-002",
         "PC HP ProDesk 400",
         "Equipo de diseño gráfico",
+        "Laboratorio de Cómputo 1",
         "Laboratorio de Cómputo 1, Fila B",
     ),
     (
         "LAB-MON-001",
         'Monitor Samsung 24"',
         "Monitor externo para estaciones",
+        "Laboratorio de Electrónica",
         "Laboratorio de Electrónica, Mesa 3",
     ),
     (
         "TALL-PROY-001",
         "Proyector Epson X49",
         "Proyector para salones",
+        "Taller de Proyectos",
         "Salón 201",
     ),
 ]
@@ -71,19 +75,22 @@ async def seed() -> None:
                     existing.matricula = matricula
         print(f"   OK {len(USERS)} usuarios verificados/creados")
 
-        for codigo, nombre, descripcion, ubicacion in EQUIPMENT:
-            exists = await session.scalar(select(Equipo.id).where(Equipo.codigo == codigo))
-            if exists is None:
+        for codigo, nombre, descripcion, laboratorio, ubicacion in EQUIPMENT:
+            existing = await session.scalar(select(Equipo).where(Equipo.codigo == codigo))
+            if existing is None:
                 session.add(
                     Equipo(
                         codigo=codigo,
                         nombre=nombre,
                         descripcion=descripcion,
+                        laboratorio=laboratorio,
                         ubicacion=ubicacion,
                         qr_token=str(uuid4()),
                         activo=True,
                     )
                 )
+            elif existing.laboratorio is None:
+                existing.laboratorio = laboratorio
         print(f"   OK {len(EQUIPMENT)} equipos verificados/creados")
 
         await session.commit()

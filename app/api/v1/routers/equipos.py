@@ -1,4 +1,6 @@
-from typing import Annotated
+import re
+import unicodedata
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
@@ -25,9 +27,15 @@ async def listar(
     activo: str | None = Query(default=None),
     q: str | None = Query(default=None),
     ubicacion: str | None = Query(default=None),
+    laboratorio: str | None = Query(default=None),
 ) -> list[dict]:
     activo_filter = None if activo is None else activo == "true"
-    equipos = await service.find_all(activo=activo_filter, q=q or None, ubicacion=ubicacion or None)
+    equipos = await service.find_all(
+        activo=activo_filter,
+        q=q or None,
+        ubicacion=ubicacion or None,
+        laboratorio=laboratorio or None,
+    )
     return [equipment_public(equipo) for equipo in equipos]
 
 
@@ -42,8 +50,34 @@ async def crear(
         nombre=body.nombre,
         descripcion=body.descripcion,
         ubicacion=body.ubicacion,
+        laboratorio=body.laboratorio,
     )
     return equipment_public(equipo)
+
+
+@router.get("/etiquetas")
+async def etiquetas_por_lote(
+    _: AdminUser,
+    service: Annotated[EquiposService, Depends(get_equipos_service)],
+    laboratorio: str | None = Query(default=None),
+    ubicacion: str | None = Query(default=None),
+    activo: bool | None = Query(default=True),
+) -> Response:
+    """HU-AD-07: PDF con las etiquetas de un lote de equipos."""
+    content, nombre = await service.get_labels_sheet(
+        laboratorio=laboratorio or None,
+        ubicacion=ubicacion or None,
+        activo=activo,
+    )
+    filename = f"etiquetas-{_slug(nombre)}.pdf"
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
 
 
 @router.get("/qr/{qr_token}")
@@ -80,15 +114,17 @@ async def descargar_qr(
     equipment_id: int,
     _: AdminUser,
     service: Annotated[EquiposService, Depends(get_equipos_service)],
-    formato: str = Query(default="png", alias="format"),
+    formato: Literal["png", "svg", "pdf"] = Query(default="png", alias="format"),
 ) -> Response:
-    content, content_type = await service.get_qr_image(equipment_id, formato)
+    content, content_type, filename = await service.get_qr_document(equipment_id, formato)
+    disposition = "attachment" if formato == "pdf" else "inline"
+    filename = _slug(filename)
     return Response(
         content=content,
         media_type=content_type,
         headers={
             "Cache-Control": "no-store",
-            "Content-Disposition": (f'inline; filename="equipo-{equipment_id}-qr.{formato}"'),
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
         },
     )
 
@@ -100,3 +136,11 @@ async def regenerar_qr(
     service: Annotated[EquiposService, Depends(get_equipos_service)],
 ) -> dict:
     return equipment_public(await service.regenerate_qr(equipment_id))
+
+
+def _slug(value: str) -> str:
+    sin_acentos = "".join(
+        c for c in unicodedata.normalize("NFKD", value) if not unicodedata.combining(c)
+    )
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", sin_acentos).strip("-")
+    return slug[:60] or "equipos"
