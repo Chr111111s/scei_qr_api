@@ -20,7 +20,7 @@ async def iniciar(
     user: AlumnoUser,
     service: Annotated[UsosService, Depends(get_usos_service)],
 ) -> dict:
-    usage = await service.iniciar(body.qr_token, user.user_id)
+    usage = await service.iniciar(body.qr_token, user.user_id, body.idempotency_key)
     return usage_public(usage)
 
 

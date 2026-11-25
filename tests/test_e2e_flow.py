@@ -1,10 +1,28 @@
 from time import time
 
-from sqlalchemy import delete
+import pytest
+from sqlalchemy import delete, select, update
 
 from app.core.config import settings
-from app.infrastructure.db.models import Equipo, Incidencia, Uso
+from app.domain.enums import EstadoUso
+from app.infrastructure.db.base import utcnow
+from app.infrastructure.db.models import Equipo, Incidencia, Uso, Usuario
 from app.infrastructure.db.session import SessionLocal
+
+
+@pytest.fixture(autouse=True)
+async def _limpiar_usos_activos_de_los_alumnos_demo():
+    """Finaliza usos ACTIVO colgados de corridas previas para no romper las pruebas."""
+    async with SessionLocal() as session:
+        demo_alumnos = select(Usuario.id).where(Usuario.username.in_(["alumno1", "alumno2"]))
+        await session.execute(
+            update(Uso)
+            .where(Uso.estado == EstadoUso.ACTIVO, Uso.alumno_id.in_(demo_alumnos))
+            .values(estado=EstadoUso.FINALIZADO, fin=utcnow())
+        )
+        await session.commit()
+    yield
+
 
 PNG_1X1 = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
@@ -270,3 +288,56 @@ async def test_full_flow(client) -> None:
         if uploaded_photo is not None:
             photo_path = settings.upload_path / uploaded_photo.removeprefix("/uploads/")
             photo_path.unlink(missing_ok=True)
+
+
+async def test_iniciar_uso_es_idempotente_por_clave(client) -> None:
+    stamp = int(time() * 1000)
+    created_equipment: list[int] = []
+    created_usage: int | None = None
+
+    try:
+        admin_token = await _login(client, "admin")
+        alumno_token = await _login(client, "alumno1")
+
+        created = await client.post(
+            "/api/v1/equipos",
+            headers=_auth(admin_token),
+            json={
+                "codigo": f"IDEM-{stamp}",
+                "nombre": "Equipo idempotente",
+                "ubicacion": "Laboratorio E2E",
+            },
+        )
+        assert created.status_code == 201, created.text
+        equipment = created.json()
+        created_equipment.append(equipment["id"])
+        idempotency_key = f"idem-{stamp}"
+
+        first = await client.post(
+            "/api/v1/usos",
+            headers=_auth(alumno_token),
+            json={"qrToken": equipment["qrToken"], "idempotencyKey": idempotency_key},
+        )
+        assert first.status_code == 200, first.text
+        first_payload = first.json()
+        created_usage = first_payload["id"]
+        assert first_payload["estado"] == "ACTIVO"
+
+        replay = await client.post(
+            "/api/v1/usos",
+            headers=_auth(alumno_token),
+            json={"qrToken": equipment["qrToken"], "idempotencyKey": idempotency_key},
+        )
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["id"] == created_usage
+
+        mine = await client.get("/api/v1/usos/mis-registros", headers=_auth(alumno_token))
+        assert mine.status_code == 200
+        assert sum(1 for item in mine.json() if item["id"] == created_usage) == 1
+    finally:
+        async with SessionLocal() as session:
+            if created_usage is not None:
+                await session.execute(delete(Uso).where(Uso.id == created_usage))
+            for equipment_id in created_equipment:
+                await session.execute(delete(Equipo).where(Equipo.id == equipment_id))
+            await session.commit()

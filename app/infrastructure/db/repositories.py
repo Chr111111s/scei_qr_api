@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -64,6 +65,7 @@ def _usage(row: Uso) -> Usage:
         estado=EstadoUso(row.estado),
         equipo=_equipment(row.equipo) if row.equipo is not None else None,
         alumno=_summary(row.alumno) if row.alumno is not None else None,
+        idempotency_key=row.idempotency_key,
     )
 
 
@@ -312,15 +314,42 @@ class SqlAlchemyUsageRepository:
         row = result.scalar_one_or_none()
         return _usage(row) if row else None
 
-    async def create(self, *, alumno_id: int, equipo_id: int) -> Usage:
+    async def find_by_idempotency_key(
+        self, alumno_id: int, idempotency_key: str
+    ) -> Usage | None:
+        stmt = (
+            select(Uso)
+            .where(
+                Uso.alumno_id == alumno_id,
+                Uso.idempotency_key == idempotency_key,
+            )
+            .options(selectinload(Uso.equipo), selectinload(Uso.alumno))
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return _usage(row) if row else None
+
+    async def create(
+        self, *, alumno_id: int, equipo_id: int, idempotency_key: str | None = None
+    ) -> Usage:
         row = Uso(
             alumno_id=alumno_id,
             equipo_id=equipo_id,
             inicio=utcnow(),
             estado=EstadoUso.ACTIVO,
+            idempotency_key=idempotency_key,
         )
         self.session.add(row)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            if idempotency_key is not None:
+                existing = await self.find_by_idempotency_key(alumno_id, idempotency_key)
+                if existing is not None:
+                    return existing
+            raise
         created = await self.find_by_id(row.id)
         assert created is not None
         return created

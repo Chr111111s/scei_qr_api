@@ -48,6 +48,7 @@ class Usage:
     estado: EstadoUso
     equipo: Equipment | None = None
     alumno: UserSummary | None = None
+    idempotency_key: str | None = None
 
 
 @dataclass(frozen=True)

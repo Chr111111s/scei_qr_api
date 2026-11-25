@@ -9,7 +9,14 @@ class UsosService:
         self.usos = usos
         self.equipos = equipos
 
-    async def iniciar(self, qr_token: str, alumno_id: int) -> Usage:
+    async def iniciar(
+        self, qr_token: str, alumno_id: int, idempotency_key: str | None = None
+    ) -> Usage:
+        if idempotency_key is not None:
+            existente = await self.usos.find_by_idempotency_key(alumno_id, idempotency_key)
+            if existente is not None:
+                return existente
+
         equipo = await self.equipos.find_by_qr_token(qr_token)
         if equipo is None or not equipo.activo:
             raise NotFoundError("QR no válido o equipo inactivo")
@@ -35,7 +42,11 @@ class UsosService:
                 "Finaliza el uso actual antes de registrar otro."
             )
 
-        return await self.usos.create(alumno_id=alumno_id, equipo_id=equipo.id)
+        return await self.usos.create(
+            alumno_id=alumno_id,
+            equipo_id=equipo.id,
+            idempotency_key=idempotency_key,
+        )
 
     async def finalizar(self, usage_id: int, alumno_id: int) -> Usage:
         uso = await self.usos.find_by_id(usage_id)

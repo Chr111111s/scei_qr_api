@@ -83,6 +83,17 @@ class UpdateEquipoRequest(StrictModel):
 
 class IniciarUsoRequest(StrictModel):
     qr_token: str = Field(alias="qrToken", min_length=1)
+    idempotency_key: str | None = Field(
+        default=None, alias="idempotencyKey", min_length=1, max_length=128
+    )
+
+    @field_validator("idempotency_key", mode="before")
+    @classmethod
+    def normalizar_idempotency_key(cls, value: str | None) -> str | None:
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
 
 
 class CambiarEstadoRequest(StrictModel):

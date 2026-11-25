@@ -46,10 +46,13 @@ class _FakeUsos:
         *,
         activo_alumno: Usage | None = None,
         activo_equipo: Usage | None = None,
+        existente_por_clave: Usage | None = None,
     ) -> None:
         self.activo_alumno = activo_alumno
         self.activo_equipo = activo_equipo
+        self.existente_por_clave = existente_por_clave
         self.created: Usage | None = None
+        self.consultas_clave: list[tuple[int, str]] = []
 
     async def find_active_by_alumno(self, alumno_id: int) -> Usage | None:
         return self.activo_alumno
@@ -57,7 +60,15 @@ class _FakeUsos:
     async def find_active_by_equipo(self, equipo_id: int) -> Usage | None:
         return self.activo_equipo
 
-    async def create(self, *, alumno_id: int, equipo_id: int) -> Usage:
+    async def find_by_idempotency_key(
+        self, alumno_id: int, idempotency_key: str
+    ) -> Usage | None:
+        self.consultas_clave.append((alumno_id, idempotency_key))
+        return self.existente_por_clave
+
+    async def create(
+        self, *, alumno_id: int, equipo_id: int, idempotency_key: str | None = None
+    ) -> Usage:
         self.created = _uso(alumno_id=alumno_id, equipo_id=equipo_id)
         return self.created
 
@@ -110,3 +121,39 @@ async def test_iniciar_rechaza_equipo_inactivo() -> None:
 
     with pytest.raises(NotFoundError):
         await service.iniciar("qr-token", alumno_id=1)
+
+
+async def test_iniciar_devuelve_el_uso_existente_para_la_misma_clave() -> None:
+    equipo = _equipo()
+    existente = _uso(id_=99, alumno_id=1, equipo_id=equipo.id)
+    usos = _FakeUsos(existente_por_clave=existente)
+    service = UsosService(usos, _FakeEquipos(equipo))
+
+    uso = await service.iniciar("qr-token", alumno_id=1, idempotency_key="clave-1")
+
+    assert uso is existente
+    assert usos.created is None
+    assert usos.consultas_clave == [(1, "clave-1")]
+
+
+async def test_iniciar_crea_el_uso_con_clave_cuando_no_existe() -> None:
+    equipo = _equipo()
+    usos = _FakeUsos()
+    service = UsosService(usos, _FakeEquipos(equipo))
+
+    uso = await service.iniciar("qr-token", alumno_id=1, idempotency_key="clave-2")
+
+    assert uso.alumno_id == 1
+    assert usos.created is not None
+    assert usos.consultas_clave == [(1, "clave-2")]
+
+
+async def test_iniciar_sin_clave_no_consulta_idempotencia() -> None:
+    equipo = _equipo()
+    usos = _FakeUsos()
+    service = UsosService(usos, _FakeEquipos(equipo))
+
+    await service.iniciar("qr-token", alumno_id=1)
+
+    assert usos.consultas_clave == []
+    assert usos.created is not None

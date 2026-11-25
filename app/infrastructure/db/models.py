@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     Text,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -79,6 +80,13 @@ class Uso(Base):
     __table_args__ = (
         Index("Uso_alumnoId_estado_idx", "alumnoId", "estado"),
         Index("Uso_equipoId_idx", "equipoId"),
+        Index(
+            "Uso_alumnoId_idempotencyKey_key",
+            "alumnoId",
+            "idempotencyKey",
+            unique=True,
+            postgresql_where=text('"idempotencyKey" IS NOT NULL'),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -99,6 +107,7 @@ class Uso(Base):
     estado: Mapped[EstadoUso] = mapped_column(
         _enum_type(EstadoUso, "EstadoUso"), nullable=False, default=EstadoUso.ACTIVO
     )
+    idempotency_key: Mapped[str | None] = mapped_column("idempotencyKey", Text)
 
     alumno: Mapped[Usuario] = relationship(back_populates="usos", foreign_keys=[alumno_id])
     equipo: Mapped[Equipo] = relationship(back_populates="usos", foreign_keys=[equipo_id])
